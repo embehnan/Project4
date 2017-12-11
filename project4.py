@@ -4,46 +4,55 @@ import emilyinfo
 import sqlite3
 import requests
 import datetime
-import facebook
+import facebook  #import facebook-sdk
 import json
 from pprint import pprint
+
+
+## Set up of the caching pattern
 
 CACHE_FNAME = "my_cached_data.json"
 
 try:
 
-    cache_file = open(CACHE_FNAME,'r')
-    cache_contents = cache_file.read()
-    cache_file.close()
-    CACHE_DICTION = json.loads(cache_contents)
-
+    cache_file = open(CACHE_FNAME,'r') #trying to read file
+    cache_contents = cache_file.read() #data into string if present
+    CACHE_DICTION = json.loads(cache_contents) #putting into a dictionary
+    cache_file.close() #close file, we are good & the data is in a dictionary
 except:
 
     CACHE_DICTION = {}
 
 
-# Facebook Graph API
-def my_facebook_data(my_access_token):
+## Facebook Graph API ##
 
-    graph = facebook.GraphAPI(access_token=my_access_token, version="2.1")
+## Gathering Facebook Data: gets 100 Facebook photo posts from a
+## a specific user's feed while using caching. my_facebook_data function
+## returns a Python object to represent the data retrieved from Facebook
+
+def my_facebook_data(my_access_token):  #my_access_token linked to emilyinfo.py
+
+    graph = facebook.GraphAPI(access_token=my_access_token, version="2.1") #Graph API is made up of objects/nodes in FB (people, pages, events, photos) & connections between them
     my_facebook_data = graph.request('me?fields=photos.limit(100){likes,comments,created_time}')
+    #nested request using field expansion to retrieve up to 100 photos on a user's profile
+    #with people who liked, comments, and the time created
 
-    my_id = my_facebook_data['id']
-    my_photo_list = my_facebook_data['photos']['data']
+    my_id = my_facebook_data['id'] #
+    my_photo_list = my_facebook_data['photos']['data'] #
 
     my_facebook_results = []
 
-    if my_id in CACHE_DICTION:
+    if my_id in CACHE_DICTION: #if we have already made this request, use stored data in cache
 
         my_facebook_results = CACHE_DICTION[my_id]
 
-    else:
+    else: #otherwise, get data from Facebook API Graph and store it
 
         for my_post in my_photo_list:
             amount_of_likes = 0
 
             if 'likes' in my_post.keys():
-                for like in my_photos['likes']['data']:
+                for like in my_post['likes']['data']:
                     amount_of_likes += 1
 
             my_created_time = my_post['created_time']
@@ -76,7 +85,7 @@ def my_facebook_data(my_access_token):
                 weekday = "Sunday"
 
             else:
-                print("Invalid Date")
+                print("Not a Valid Date")
 
             my_facebook_results.append((amount_of_likes, weekday))
 
@@ -88,7 +97,7 @@ def my_facebook_data(my_access_token):
     return my_facebook_results
 
 
-# SQL Database
+## SQL Database
 
 conn = sqlite3.connect("my_facebook_database.sqlite")
 curs = conn.cursor()
@@ -96,10 +105,11 @@ curs = conn.cursor()
 curs.execute("DROP TABLE IF EXISTS Likes_On_Photos_By_Day_Of_The_Week")
 curs.execute("CREATE TABLE Likes_On_Photos_By_Day_Of_The_Week (Weekday TEXT, Likes NUMBER)")
 
-for each_post in my_facebook_data(emilyinfo.access_token):
+my_data=my_facebook_data(emilyinfo.access_token)
+for each_photo in my_data:
 
-    my_tuple = (each_post[1], each_post[0])
-    curs.execute('INSERT INTO Likes_On_Photos_By_Day_Of_The_Week (Weekday, Likes) VALUES (?,?)', my_tuple)
+    fb_tuple = (each_photo[1], each_photo[0])
+    curs.execute('INSERT INTO Likes_On_Photos_By_Day_Of_The_Week (Weekday, Likes) VALUES (?,?)', fb_tuple)
 
     conn.commit()
 
