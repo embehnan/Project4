@@ -4,7 +4,7 @@ import FBinfo
 import sqlite3
 import requests
 import datetime
-import facebook  #import facebook-sdk
+import facebook  #pip install facebook-sdk
 import json
 from pprint import pprint
 import plotly
@@ -34,9 +34,13 @@ except:
 ## a specific user's feed while using caching. my_facebook_data function
 ## returns a Python object to represent the data retrieved from Facebook
 
-def user_facebook_data(my_access_token):  #my_access_token linked to FBinfo.py
+access_token = None
+if access_token is None:
+    access_token = input("\nCopy and paste token from https://developers.facebook.com/tools/explorer\n>  ")
 
-    graph = facebook.GraphAPI(access_token=my_access_token, version="2.1") #Graph API is made up of objects/nodes in FB (people, pages, events, photos) & connections between them
+def user_facebook_data(access_token):  #my_access_token linked to FBinfo.py
+
+    graph = facebook.GraphAPI(access_token, version="2.1") #Graph API is made up of objects/nodes in FB (people, pages, events, photos) & connections between them
     user_facebook_data = graph.request('me?fields=photos.limit(100){likes,comments,created_time}')
     #nested request using field expansion to retrieve up to 100 photos on a user's profile
     #with people who liked, comments, and the time created
@@ -44,14 +48,23 @@ def user_facebook_data(my_access_token):  #my_access_token linked to FBinfo.py
     user_id = user_facebook_data['id']
     user_photo_list = user_facebook_data['photos']['data'] #retrieves photo data, list of users' Name who liked and users' ID, comments, time created
 
-
     user_facebook_results = [] #creates empty list for caching data
+
 
     if user_id in CACHE_DICTION: #if we have already made this request, use stored data in cache
 
         user_facebook_results = CACHE_DICTION[user_id]
 
-    else: #otherwise, get data from Facebook API Graph
+    else:
+        while True:
+            try:
+                with open('my_posts.json','a') as f:
+                    for post in user_facebook_data['photos']['data']:
+                        f.write(json.dumps(post)+"\n")
+                    user_facebook_data = requests.get(user_facebook_data['paging']['next']).json()
+            except KeyError:
+        		#ran out of posts
+                break
 
         for user_post in user_photo_list:   #iterates through all photo data
             amount_of_likes = 0     #initializes number of likes per photo
@@ -115,8 +128,8 @@ curs = conn.cursor()
 curs.execute("DROP TABLE IF EXISTS Likes_On_Photos_By_Day_Of_The_Week")
 curs.execute("CREATE TABLE Likes_On_Photos_By_Day_Of_The_Week (Weekday TEXT, Likes NUMBER)") #creates table
 
-user_data=user_facebook_data(FBinfo.access_token)
-for each_photo in user_facebook_data(FBinfo.access_token):
+user_data=user_facebook_data(access_token)
+for each_photo in user_facebook_data(access_token):
 
     fb_tuple = (each_photo[1], each_photo[0])  #creates tuples to correspond to each column
     curs.execute('INSERT INTO Likes_On_Photos_By_Day_Of_The_Week (Weekday, Likes) VALUES (?,?)', fb_tuple)  #inserts appropiate values into corresponding column
