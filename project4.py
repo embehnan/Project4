@@ -1,6 +1,5 @@
 # Emily Behnan Final Project
 
-import FBinfo
 import sqlite3
 import requests
 import datetime
@@ -10,6 +9,7 @@ from pprint import pprint
 import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
+
 
 
 
@@ -36,9 +36,9 @@ except:
 
 access_token = None
 if access_token is None:
-    access_token = input("\nCopy and paste token from https://developers.facebook.com/tools/explorer\n>  ")
+    access_token = input("\nCopy and paste token from https://developers.facebook.com/tools/explorer\n>  ") #how to get Facebook access token
 
-def user_facebook_data(access_token):  #my_access_token linked to FBinfo.py
+def user_facebook_data(access_token):
 
     graph = facebook.GraphAPI(access_token, version="2.1") #Graph API is made up of objects/nodes in FB (people, pages, events, photos) & connections between them
     user_facebook_data = graph.request('me?fields=photos.limit(100){likes,comments,created_time}')
@@ -58,7 +58,7 @@ def user_facebook_data(access_token):  #my_access_token linked to FBinfo.py
     else:
         while True:
             try:
-                with open('my_posts.json','a') as f:
+                with open('my_posts.json','a') as f: #saves raw API response as cache file in my_posts.json
                     for post in user_facebook_data['photos']['data']:
                         f.write(json.dumps(post)+"\n")
                     user_facebook_data = requests.get(user_facebook_data['paging']['next']).json()
@@ -108,15 +108,17 @@ def user_facebook_data(access_token):  #my_access_token linked to FBinfo.py
             else:
                 print("Not a Valid Date")
 
-            user_facebook_results.append((amount_of_likes, weekday))    #creates list of tuples of amount of likes on specific days of the week
+            user_facebook_results.append((amount_of_likes, weekday))
 
 
-        CACHE_DICTION[user_id] = user_facebook_results
+        CACHE_DICTION[user_id] = user_facebook_results #puts a dictionary named as the users fb id,
+        #and inside dictionary is a list of lists of amount of likes on specific days of the week
+
         filename = open(CACHE_FNAME, 'w')
         filename.write(json.dumps(CACHE_DICTION))
-        filename.close()
+        filename.close() #closing file
 
-    return user_facebook_results  #returns list of tuples of # of likes with the day of week of photo post
+    return user_facebook_results  #returns # of likes with the day of week of photo post
 
 
 
@@ -138,6 +140,48 @@ for each_photo in user_facebook_data(access_token):
 
 curs.close()
 
+#######################Counting Days of the Week############
+count_dict = {'Monday': 0, 'Tuesday': 0, 'Wednesday': 0, 'Thursday': 0, 'Friday': 0, 'Saturday': 0, 'Sunday': 0}
+#initializes a dictionary to tally the number of photos posted each day of the week
+
+with open("user_cached_data.json", 'r') as infile:  #loading json file to read as infile
+    read = infile.read()
+    data = json.loads(read)
+    count_list = data["1133532416662509"] #retrieving the dictionary with the key value as the user's id
+
+    for lst in count_list:   #iterating through the lists inside dictionary
+        day = lst[1]  #indexing the second item (day of week) in each list
+        count_dict[day] += 1  #summing every occurance of each day of the week and adding them as values to the counter dictionary
+
+    keys_lst = list(count_dict.keys())  #creating list for all keys in count_dict (Monday-Sunday)
+    vals_lst = list(count_dict.values()) #creating list for all values in count_dict (# of occurance of each day of week)
+
+
 #######################plotly visualization#########################
 
-plotly.tools.set_credentials_file(username='embehnan', api_key='cUwRg6W1b5CeTciGcp1U')
+plotly.tools.set_credentials_file(username='embehnan', api_key='cUwRg6W1b5CeTciGcp1U')  #accessing my plotly account
+
+#code pattern for bar chart retrieved from https://plot.ly/python/bar-charts/
+
+ #creating bar chart with x values as day of week, and y values as # of photos posted on each day of week
+
+chart = go.Bar(
+            x=keys_lst,
+            y=vals_lst,
+            text=vals_lst,
+            textposition = 'auto',
+            marker=dict(
+                color='rgb(158,202,225)',
+                line=dict(
+                    color='rgb(8,48,107)',
+                    width=1.5),
+            ),
+            opacity=0.6
+        )
+
+data = [chart]
+layout = go.Layout(title='Number of Facebook Photos Posted by Day of the Week',)
+
+fig = go.Figure(data=data, layout=layout)
+
+py.plot(fig, filename='bar-direct-labels') #this allows for the visualization to automatically pop up in a browser
